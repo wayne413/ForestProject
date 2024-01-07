@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>查看用户</title>
+</head>
+<body>
+    <a href="{{ url_for('home') }}" style="position: absolute; top: 10px; right: 10px; text-decoration: none; color: #000;">
+        <button>返回首頁</button>
+    </a>
+    <h1>已註冊清單</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>工號</th>
+                <th>姓名</th>
+                <th>註冊時間</th>
+                <th>操作</th> <!-- 新增操作列 -->
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+                <tr>
+                    <td>{{ user.number }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.signup_time }}</td>
+                    <td>
+                        <form method="POST" action="/delete/{{ user.number }}">
+                            <button type="submit">刪除</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
