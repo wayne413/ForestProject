@@ -25,7 +25,7 @@ try:
         result = cursor.fetchone()
 
         if result:
-            # 將二禁制轉換成圖片
+            # 將二進制轉換成圖片
             image_data = result[0]
             image = Image.open(io.BytesIO(image_data))
 
