@@ -2,8 +2,10 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_bootstrap import Bootstrap
 import os
+import base64
 import secrets
 from datetime import datetime
+
 
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
@@ -30,6 +32,7 @@ class UserRegister(db.Model):
                        nullable=False, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     signup_time = db.Column(db.DateTime, default=datetime.utcnow)
+    captured_image = db.Column(db.LargeBinary)
 
     def __repr__(self):
         return 'ID:%d, Username:%s' % (self.id, self.username)
@@ -51,6 +54,7 @@ def register():
     if request.method == 'POST':
         number = request.form['number']
         username = request.form['username']
+        capturedImageData = request.form['capturedImageData']
         signup_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         # 判斷是否有輸入
@@ -64,8 +68,10 @@ def register():
             if existing_user:
                 error2 = True
             else:
+                binary_data = base64.b64decode(capturedImageData.split(',')[1])
+
                 new_user = UserRegister(
-                    number=number, username=username, signup_time=signup_time)
+                    number=number, username=username, signup_time=signup_time, captured_image=binary_data)
                 db.session.add(new_user)
                 db.session.commit()
     return render_template('register.html', error1=error1, error2=error2)

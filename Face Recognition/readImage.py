@@ -20,7 +20,8 @@ try:
 
         # 從資料庫取得影像
         # 指定id為1的影像
-        cursor.execute("SELECT img FROM image WHERE id = 1")
+        cursor.execute(
+            "SELECT captured_image FROM userregisters WHERE number =110878033 ")
         result = cursor.fetchone()
 
         if result:
