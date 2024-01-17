@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 # -------------資料庫設定---------------#
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://root:abc0101@127.0.0.1/user'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://test:12345678@localhost/Topics'
 # 隨機設定密碼
 app.config['SECRET_KEY'] = secrets.token_hex(16)
 
@@ -21,20 +21,28 @@ db = SQLAlchemy(app)
 # -------------------------------------#
 
 # ------------資料庫Table建置-----------#
+
+
 class UserRegister(db.Model):
     """資料庫紀錄"""
     __tablename__ = 'UserRegisters'
-    number = db.Column(db.String(9), unique=True, nullable=False, primary_key=True)
+    number = db.Column(db.String(9), unique=True,
+                       nullable=False, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     signup_time = db.Column(db.DateTime, default=datetime.utcnow)
+
     def __repr__(self):
         return 'ID:%d, Username:%s' % (self.id, self.username)
+
+
 # 創建表格（如果還不存在）
 with app.app_context():
     db.create_all()
 # --------------------------------------#
 
 # -----------------------------------------註冊網頁---------------------------------------------#
+
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     error1 = False
@@ -56,18 +64,22 @@ def register():
             if existing_user:
                 error2 = True
             else:
-                new_user = UserRegister(number=number, username=username,signup_time=signup_time)
+                new_user = UserRegister(
+                    number=number, username=username, signup_time=signup_time)
                 db.session.add(new_user)
                 db.session.commit()
     return render_template('register.html', error1=error1, error2=error2)
 # --------------------------------------------------------------------------------------------#
 
 # -----------------------------------------已註冊查看網頁---------------------------------------------#
+
+
 @app.route('/view', methods=['GET'])
 def view_users():
     users = UserRegister.query.all()  # 收集已註冊數據
     return render_template('view.html', users=users)
 # --------------------------------------------------------------------------------------------#
+
 
 @app.route('/delete/<number>', methods=['POST'])
 def delete_user(number):
@@ -77,13 +89,16 @@ def delete_user(number):
         db.session.commit()
     return redirect(url_for('view_users'))
 
+
 @app.route('/')
 def home():
     return render_template('home.html')
 
+
 @app.route('/camera')
 def camera():
     return render_template('camera.html')
+
 
 if __name__ == '__main__':
     app.run(debug=True)
