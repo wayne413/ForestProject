@@ -5,7 +5,12 @@ import os
 import base64
 import secrets
 from datetime import datetime
-
+import io
+from PIL import Image
+import cv2
+import face_recognition
+import pickle
+import numpy as np
 
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
@@ -70,8 +75,15 @@ def register():
             else:
                 binary_data = base64.b64decode(capturedImageData.split(',')[1])
 
+                # 轉face recognition encode
+                image_pil = Image.open(io.BytesIO(binary_data))
+                image_np = np.array(image_pil)
+                img = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
+                encode = face_recognition.face_encodings(img)[0]
+                encode_data = pickle.dumps(encode)
+
                 new_user = UserRegister(
-                    number=number, username=username, signup_time=signup_time, captured_image=binary_data)
+                    number=number, username=username, signup_time=signup_time, captured_image=binary_data, encode_data=encode_data)
                 db.session.add(new_user)
                 db.session.commit()
     return render_template('register.html', error1=error1, error2=error2)

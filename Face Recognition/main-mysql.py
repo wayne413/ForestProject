@@ -34,12 +34,12 @@ try:
     conn = pymysql.connect(**db_settings)
     with conn.cursor() as cursor:
 
-        select_query = "SELECT * FROM people "
+        select_query = "SELECT * FROM userregisters "
         cursor.execute(select_query)
         result = cursor.fetchall()
         for i in range(len(result)):
-            retrieved_data = pickle.loads(result[i][1])
-            peopleName.append(result[i][0])
+            retrieved_data = pickle.loads(result[i][4])
+            peopleName.append(result[i][2])
             encodeListKnown.append(retrieved_data)
 
     # 儲存變更
