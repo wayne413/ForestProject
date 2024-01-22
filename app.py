@@ -38,6 +38,7 @@ class UserRegister(db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     signup_time = db.Column(db.DateTime, default=datetime.utcnow)
     captured_image = db.Column(db.LargeBinary)
+    encode_data = db.Column(db.LargeBinary)
 
     def __repr__(self):
         return 'ID:%d, Username:%s' % (self.id, self.username)
