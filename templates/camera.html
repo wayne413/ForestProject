@@ -1,47 +1,18 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>即時影像抓取</title>
-    <style>
-        /* 在這裡加入您的樣式 */
-    </style>
+    <title>Camera Feed</title>
 </head>
 
 <body>
-    <h1>即時影像抓取</h1>
+    <h1>Camera Feed</h1>
+    <p>ID: {{ id }}</p>
+    <p>Name: {{ name }}</p>
+    <img src="{{ url_for('video_feed') }}" width="640" height="480" />
 
-    <!-- 顯示攝影機畫面的影片元素 -->
-    <video id="cameraFeed" width="640" height="480" autoplay></video>
-
-    <h2>每秒 60 次的即時影像</h2>
-    <!-- 用於顯示即時影像的容器 -->
-    <canvas id="realTimeCanvas" width="640" height="480"></canvas>
-
-    <script>
-        const cameraFeed = document.getElementById('cameraFeed');
-        const realTimeCanvas = document.getElementById('realTimeCanvas');
-        const ctx = realTimeCanvas.getContext('2d');
-
-        // 定時執行每秒 1 次的即時影像抓取
-        const captureInterval = setInterval(() => {
-            // 在 canvas 上繪製當前攝影機畫面
-            ctx.drawImage(cameraFeed, 0, 0, realTimeCanvas.width, realTimeCanvas.height);
-        }, 1000 / 1); // 每秒 1 次
-
-        // 存取攝影機畫面的程式碼，根據瀏覽器和平台可能有所不同
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then((stream) => {
-                cameraFeed.srcObject = stream;
-            })
-            .catch((error) => {
-                console.error('存取攝影機時發生錯誤:', error);
-            });
-
-
-    </script>
 </body>
 
 </html>

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_bootstrap import Bootstrap
 import os
@@ -11,7 +11,7 @@ import cv2
 import face_recognition
 import pickle
 import numpy as np
-
+import time
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
 
@@ -114,66 +114,90 @@ def home():
     return render_template('home.html')
 
 
+peopleName = []  # 儲存姓名list
+encodeListKnown = []  # 儲存encode
+peopleID = []
+
+
+def generate_frames():
+
+    camera0 = cv2.VideoCapture(0)
+    name = None
+    id = None
+    while True:
+
+        success, img = camera0.read()
+        if not success:
+            break
+
+        if name == None:
+            # if frame_count % processing_interval == 0:
+            # 將image縮小並轉換成RGB
+            imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+            imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
+            # 將臉轉換成encode
+            faceCurFrame = face_recognition.face_locations(imgS)
+            encodeCurFrame = face_recognition.face_encodings(
+                imgS, faceCurFrame)
+            for encodeFace in (encodeCurFrame):
+                matches = face_recognition.compare_faces(
+                    encodeListKnown, encodeFace)
+                faceDis = face_recognition.face_distance(
+                    encodeListKnown, encodeFace)
+                # print("matches", matches)
+                # print("faceDis", faceDis)
+
+                # 加入人臉的偵測框線
+                matchIndex = np.argmin(faceDis)
+                # print("Match Index", matchIndex)
+
+                # 判斷人臉身分
+                if matches[matchIndex] & (faceDis[matchIndex] <= 0.5):
+                    # print("Known Face Detected")
+                    # print(peopleName[matchIndex])
+                    id, name = get_dectecded_people(matchIndex)
+                    print(id)
+                else:
+                    print("Don't Known Face Detected")
+        # 把获取到的图像格式转换(编码)成流数据，赋值到内存缓存中;
+        # 主要用于图像数据格式的压缩，方便网络传输
+        success, buffer = cv2.imencode('.jpg', img)
+        # 将缓存里的流数据转成字节流
+        frame = buffer.tobytes()
+        # 指定字节流类型image/jpeg
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+    camera0.release()
+    cv2.destroyAllWindows()
+
+
+def get_dectecded_people(matchIndex):
+    id = peopleID[matchIndex]
+    name = peopleName[matchIndex]
+    return (id, name)
+
+
 @app.route('/camera')
 def camera():
-
-    peopleName = []  # 儲存姓名list
-    encodeListKnown = []  # 儲存encode
-
-    # 使用筆電鏡頭
-    cap = cv2.VideoCapture(0)
-    cap.set(3, 640)
-    cap.set(4, 480)
 
     # Load the encoding file
     print("Loading Started...")
 
-    # 將資料庫內的name、encode讀取出來
     read_data = UserRegister.query.all()
     for user_data in read_data:
         retrieved_data = pickle.loads(user_data.encode_data)
         peopleName.append(user_data.username)
         encodeListKnown.append(retrieved_data)
-
+        peopleID.append(user_data.number)
     print("Encode File Loaded")
 
-    while True:
-        success, img = cap.read()
-        # 將image縮小並轉換成RGB
-        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
-        imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
-        # 將臉轉換成encode
-        faceCurFrame = face_recognition.face_locations(imgS)
-        encodeCurFrame = face_recognition.face_encodings(imgS, faceCurFrame)
+    return render_template('camera.html', peopleID=peopleID, peopleName=peopleName, encodeListKnown=encodeListKnown)
 
-        for encodeFace, faceLoc in zip(encodeCurFrame, faceCurFrame):
-            matches = face_recognition.compare_faces(
-                encodeListKnown, encodeFace)
-            faceDis = face_recognition.face_distance(
-                encodeListKnown, encodeFace)
-            # print("matches", matches)
-            # print("faceDis", faceDis)
 
-            # 加入人臉的偵測框線
-            matchIndex = np.argmin(faceDis)
-            # print("Match Index", matchIndex)
-
-            # 判斷人臉身分
-            if matches[matchIndex] & (faceDis[matchIndex] <= 0.5):
-                # print("Known Face Detected")
-                print(peopleName[matchIndex])
-            else:
-                print("Don't Known Face Detected")
-        cv2.imshow("Camera", img)
-
-        # cv2.waitKey(1)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-    return render_template('camera.html')
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 if __name__ == '__main__':
