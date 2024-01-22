@@ -116,6 +116,63 @@ def home():
 
 @app.route('/camera')
 def camera():
+
+    peopleName = []  # 儲存姓名list
+    encodeListKnown = []  # 儲存encode
+
+    # 使用筆電鏡頭
+    cap = cv2.VideoCapture(0)
+    cap.set(3, 640)
+    cap.set(4, 480)
+
+    # Load the encoding file
+    print("Loading Started...")
+
+    # 將資料庫內的name、encode讀取出來
+    read_data = UserRegister.query.all()
+    for user_data in read_data:
+        retrieved_data = pickle.loads(user_data.encode_data)
+        peopleName.append(user_data.username)
+        encodeListKnown.append(retrieved_data)
+
+    print("Encode File Loaded")
+
+    while True:
+        success, img = cap.read()
+        # 將image縮小並轉換成RGB
+        imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+        imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
+        # 將臉轉換成encode
+        faceCurFrame = face_recognition.face_locations(imgS)
+        encodeCurFrame = face_recognition.face_encodings(imgS, faceCurFrame)
+
+        for encodeFace, faceLoc in zip(encodeCurFrame, faceCurFrame):
+            matches = face_recognition.compare_faces(
+                encodeListKnown, encodeFace)
+            faceDis = face_recognition.face_distance(
+                encodeListKnown, encodeFace)
+            # print("matches", matches)
+            # print("faceDis", faceDis)
+
+            # 加入人臉的偵測框線
+            matchIndex = np.argmin(faceDis)
+            # print("Match Index", matchIndex)
+
+            # 判斷人臉身分
+            if matches[matchIndex] & (faceDis[matchIndex] <= 0.5):
+                # print("Known Face Detected")
+                print(peopleName[matchIndex])
+            else:
+                print("Don't Known Face Detected")
+        cv2.imshow("Camera", img)
+
+        # cv2.waitKey(1)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
     return render_template('camera.html')
 
 
