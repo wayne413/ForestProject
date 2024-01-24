@@ -12,6 +12,20 @@ import face_recognition
 import pickle
 import numpy as np
 import time
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import session
+import pymysql
+
+# 資料庫參數設定
+db_settings = {
+    "host": "localhost",
+    "port": 3306,
+    "user": "test",
+    "password": "12345678",
+    "db": "topics",
+    "charset": "utf8",
+}
+
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
 
@@ -22,6 +36,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://test:12345678@localhost/Topics'
 # 隨機設定密碼
 app.config['SECRET_KEY'] = secrets.token_hex(16)
+
+
+app.config['SERVER_NAME'] = 'localhost:5000'
+app.config['APPLICATION_ROOT'] = 'app'
+app.config['PREFERRED_URL_SCHEME'] = 'http'
 
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
@@ -109,28 +128,42 @@ def delete_user(number):
     return redirect(url_for('view_users'))
 
 
-@app.route('/')
-def home():
-    return render_template('home.html')
-
-
 peopleName = []  # 儲存姓名list
 encodeListKnown = []  # 儲存encode
 peopleID = []
 
 
-def generate_frames():
+@app.route('/')
+def home():
+    # Load the encoding file.
 
+    print("Loading Started...")
+
+    read_data = UserRegister.query.all()
+    for user_data in read_data:
+        retrieved_data = pickle.loads(user_data.encode_data)
+        peopleName.append(user_data.username)
+        encodeListKnown.append(retrieved_data)
+        peopleID.append(user_data.number)
+    print("Encode File Loaded")
+    return render_template('home.html', peopleID=peopleID, peopleName=peopleName, encodeListKnown=encodeListKnown)
+
+
+global n
+global faceDis
+
+
+def generate_frames():
+    n = None
     camera0 = cv2.VideoCapture(0)
-    name = None
-    id = None
+
     while True:
 
         success, img = camera0.read()
         if not success:
             break
 
-        if name == None:
+        if n == None:
             # if frame_count % processing_interval == 0:
             # 將image縮小並轉換成RGB
             imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
@@ -139,7 +172,9 @@ def generate_frames():
             faceCurFrame = face_recognition.face_locations(imgS)
             encodeCurFrame = face_recognition.face_encodings(
                 imgS, faceCurFrame)
-            for encodeFace in (encodeCurFrame):
+            # print(encodeCurFrame)
+            # if encodeCurFrame.any():
+            for encodeFace, faceLoc in zip(encodeCurFrame, faceCurFrame):
                 matches = face_recognition.compare_faces(
                     encodeListKnown, encodeFace)
                 faceDis = face_recognition.face_distance(
@@ -147,18 +182,21 @@ def generate_frames():
                 # print("matches", matches)
                 # print("faceDis", faceDis)
 
-                # 加入人臉的偵測框線
+            # # print("Match Index", matchIndex)
+            # if faceDis:
+                # Check if faceDis is not empty
                 matchIndex = np.argmin(faceDis)
-                # print("Match Index", matchIndex)
-
-                # 判斷人臉身分
-                if matches[matchIndex] & (faceDis[matchIndex] <= 0.5):
-                    # print("Known Face Detected")
-                    # print(peopleName[matchIndex])
-                    id, name = get_dectecded_people(matchIndex)
-                    print(id)
+                if matches[matchIndex] and faceDis[matchIndex] <= 0.5:
+                    print(peopleName[matchIndex])
+                    n = peopleID[matchIndex]
+                    # camera(n)
+                    show(n)
                 else:
                     print("Don't Known Face Detected")
+            # else:
+            #     print("No faces detected in the current frame")
+        # else:
+        #     print("No faces detected in the current frame")
         # 把获取到的图像格式转换(编码)成流数据，赋值到内存缓存中;
         # 主要用于图像数据格式的压缩，方便网络传输
         success, buffer = cv2.imencode('.jpg', img)
@@ -172,27 +210,78 @@ def generate_frames():
     cv2.destroyAllWindows()
 
 
-def get_dectecded_people(matchIndex):
-    id = peopleID[matchIndex]
-    name = peopleName[matchIndex]
-    return (id, name)
+# def get_dectecded_people(matchIndex):
+#     id = peopleID[matchIndex]
+#     name = peopleName[matchIndex]
+#     return (id, name)
 
 
-@app.route('/camera')
+@app.route('/camera', methods=['GET'])
 def camera():
+    # user = None
 
-    # Load the encoding file
-    print("Loading Started...")
+    # if 'n' in request.args:
+    #     n = request.args['n']
+    # # user = None
+    # # if n is not None:
+    #     try:
+    #         with app.app_context():
+    #             # Query user with a specific number
+    #             user = UserRegister.query.filter_by(number=n).first()
+    #             # id = user.number
+    #             # name = user.Username
 
-    read_data = UserRegister.query.all()
-    for user_data in read_data:
-        retrieved_data = pickle.loads(user_data.encode_data)
-        peopleName.append(user_data.username)
-        encodeListKnown.append(retrieved_data)
-        peopleID.append(user_data.number)
-    print("Encode File Loaded")
+    #     except Exception as ex:
+    #         print(ex)
+    #         # return render_template('error.html', message='An error occurred while searching for data.')
+    # # else:
+    # id = user.number if user else "none"
+    # name = user.username if user else "none"
+    # return render_template('camera.html', id=id, name=name)
+    return render_template('camera.html')
 
-    return render_template('camera.html', peopleID=peopleID, peopleName=peopleName, encodeListKnown=encodeListKnown)
+
+@app.route('/show/<n>', methods=['GET'])
+def show(n):
+    with app.app_context():
+        # try:
+        #     with app.app_context():
+        #         # Query user with a specific number
+        #         user = UserRegister.query.filter_by(number=n).first()
+
+        #     # You can now use the 'user' variable to access the queried data
+        #         print(user)
+        #         return render_template('camera.html', user=user)
+
+        # except Exception as ex:
+        #     print(ex)
+        # return render_template('error.html', message='An error occurred while searching for data.')
+
+        try:
+            conn = pymysql.connect(**db_settings)
+            with conn.cursor() as cursor:
+
+                select_query = "SELECT number, username FROM topics.userregisters where number = %s "
+                cursor.execute(select_query, n)
+                result = cursor.fetchall()
+                id = result[0][0]
+                name = result[0][1]
+                print(id)
+            # 儲存變更
+            conn.commit()
+            # print("Multi-dimensional list successfully inserted into MySQL database")
+            # 關閉連線
+            conn.close()
+            # response_data = {'status': 'success',
+            #                  'id': result[0][0], 'name': result[0][1]}
+
+            # Return JSON response
+            # return {'status': 'success', 'id': id, 'name': name}
+            return render_template('camera.html', result1=id, result2=name)
+        except Exception as ex:  # 處理例外
+            print(ex)
+            # Return error response
+            # return Response('status'= 'error', 'message': 'An error occurred')
 
 
 @app.route('/video_feed')

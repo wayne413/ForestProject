@@ -9,10 +9,47 @@
 
 <body>
     <h1>Camera Feed</h1>
-    <p>ID: {{ id }}</p>
-    <p>Name: {{ name }}</p>
-    <img src="{{ url_for('video_feed') }}" width="640" height="480" />
 
+
+    <!-- <p id="result"></p> -->
+    <img src="{{ url_for('video_feed') }}" width="640" height="480" />
+    <p>ID: {{ result1 }}</p>
+    <p>Name: {{ result2 }}</p>
+    <!-- <p>id : {{ id }}</p>
+    <p>name :{{ name }} </p> -->
+    <!-- <ul>
+        {% for user in users %}
+        <li>{{ user.username }} - {{ user.email }}</li>
+        {% endfor %}
+    </ul> -->
 </body>
+<!-- <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<script>
+    $(document).ready(function () {
+        show();
+        function show() {
+            $.ajax({
+                url: "show",
+                success: function (result) {
+                    if (result.status == "success") {
+                        // Assuming result is an object with 'id' and 'name' properties
+                        console.log("ID:", result.id);
+                        console.log("Name:", result.name);
+                        // Do something with the result, e.g., update the UI
+                        $("#result").text("ID: " + result.id + ", Name: " + result.name);
+                    } else {
+                        $("#result").text("出错了");
+                    }
+                },
+                error: function (error) {
+                    console.error("Error:", error);
+                }
+            });
+        }
+
+        // Call show() when the document is ready
+
+    });
+</script> -->
 
 </html>
