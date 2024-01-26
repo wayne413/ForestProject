@@ -15,6 +15,7 @@ import time
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import session
 import pymysql
+from flask_socketio import SocketIO
 
 # 資料庫參數設定
 db_settings = {
@@ -25,6 +26,13 @@ db_settings = {
     "db": "topics",
     "charset": "utf8",
 }
+
+
+# 變數宣告
+global n
+n = None
+global faceDis
+
 
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
@@ -44,6 +52,7 @@ app.config['PREFERRED_URL_SCHEME'] = 'http'
 
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
+socketio = SocketIO(app)
 # -------------------------------------#
 
 # ------------資料庫Table建置-----------#
@@ -149,21 +158,17 @@ def home():
     return render_template('home.html', peopleID=peopleID, peopleName=peopleName, encodeListKnown=encodeListKnown)
 
 
-global n
-global faceDis
-
-
 def generate_frames():
-    n = None
     camera0 = cv2.VideoCapture(0)
-
+    name = None
+    id = None
     while True:
 
         success, img = camera0.read()
         if not success:
             break
 
-        if n == None:
+        if name == None:
             # 將image縮小並轉換成RGB
             imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
             imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
@@ -186,10 +191,10 @@ def generate_frames():
                 # Check if faceDis is not empty
                 matchIndex = np.argmin(faceDis)
                 if matches[matchIndex] and faceDis[matchIndex] <= 0.5:
-                    print(peopleName[matchIndex])
-                    n = peopleID[matchIndex]
-                    # camera(n)
-                    show(n)
+                    id, name = get_dectecded_people(matchIndex)
+                    print(id)
+                    print(name)
+                    send_data_to_frontend(id, name)
                 else:
                     print("Don't Known Face Detected")
             # else:
@@ -209,78 +214,26 @@ def generate_frames():
     cv2.destroyAllWindows()
 
 
-# def get_dectecded_people(matchIndex):
-#     id = peopleID[matchIndex]
-#     name = peopleName[matchIndex]
-#     return (id, name)
+def get_dectecded_people(matchIndex):
+    id = peopleID[matchIndex]
+    name = peopleName[matchIndex]
+    return (id, name)
 
 
 @app.route('/camera', methods=['GET'])
-def camera():
-    # user = None
-
-    # if 'n' in request.args:
-    #     n = request.args['n']
-    # # user = None
-    # # if n is not None:
-    #     try:
-    #         with app.app_context():
-    #             # Query user with a specific number
-    #             user = UserRegister.query.filter_by(number=n).first()
-    #             # id = user.number
-    #             # name = user.Username
-
-    #     except Exception as ex:
-    #         print(ex)
-    #         # return render_template('error.html', message='An error occurred while searching for data.')
-    # # else:
-    # id = user.number if user else "none"
-    # name = user.username if user else "none"
-    # return render_template('camera.html', id=id, name=name)
-    return render_template('camera.html')
-
-
-@app.route('/show/<n>', methods=['GET'])
-def show(n):
-    with app.app_context():
-        # try:
-        #     with app.app_context():
-        #         # Query user with a specific number
-        #         user = UserRegister.query.filter_by(number=n).first()
-
-        #     # You can now use the 'user' variable to access the queried data
-        #         print(user)
-        #         return render_template('camera.html', user=user)
-
-        # except Exception as ex:
-        #     print(ex)
-        # return render_template('error.html', message='An error occurred while searching for data.')
-
-        try:
-            conn = pymysql.connect(**db_settings)
-            with conn.cursor() as cursor:
-
-                select_query = "SELECT number, username FROM topics.userregisters where number = %s "
-                cursor.execute(select_query, n)
-                result = cursor.fetchall()
-                id = result[0][0]
-                name = result[0][1]
-                print(id)
-            # 儲存變更
-            conn.commit()
-            # print("Multi-dimensional list successfully inserted into MySQL database")
-            # 關閉連線
-            conn.close()
-            # response_data = {'status': 'success',
-            #                  'id': result[0][0], 'name': result[0][1]}
-
-            # Return JSON response
-            # return {'status': 'success', 'id': id, 'name': name}
-            return render_template('camera.html', result1=id, result2=name)
-        except Exception as ex:  # 處理例外
-            print(ex)
-            # Return error response
-            # return Response('status'= 'error', 'message': 'An error occurred')
+def camera(n=None):
+    peopleName.clear()
+    encodeListKnown.clear()
+    peopleID.clear()
+    read_data = UserRegister.query.all()
+    for user_data in read_data:
+        retrieved_data = pickle.loads(user_data.encode_data)
+        peopleName.append(user_data.username)
+        encodeListKnown.append(retrieved_data)
+        peopleID.append(user_data.number)
+    return render_template('camera.html', peopleID=peopleID,
+                           peopleName=peopleName, encodeListKnown=encodeListKnown)
+# print("Loading Started...")
 
 
 @app.route('/video_feed')
@@ -288,5 +241,11 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
+def send_data_to_frontend(id, name):
+    socketio.emit('update_data', {'id': id, 'name': name})
+
+
 if __name__ == '__main__':
     app.run(debug=True)
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
