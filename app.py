@@ -11,32 +11,18 @@ import cv2
 import face_recognition
 import pickle
 import numpy as np
-import time
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import session
-import pymysql
 from flask_socketio import SocketIO
-
-# 資料庫參數設定
-db_settings = {
-    "host": "localhost",
-    "port": 3306,
-    "user": "test",
-    "password": "12345678",
-    "db": "topics",
-    "charset": "utf8",
-}
-
-
-# 變數宣告
-global n
-n = None
-global faceDis
+from ultralytics import YOLO
+import matplotlib.pyplot as plt  # 新增這一行
+from ultralytics.utils.plotting import Annotator
+import cv2
+import torch
 
 
 # 取得啟動文件資料夾路徑
 pjdir = os.path.abspath(os.path.dirname(__file__))
-
 app = Flask(__name__)
 
 # -------------資料庫設定---------------#
@@ -44,11 +30,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://test:12345678@localhost/Topics'
 # 隨機設定密碼
 app.config['SECRET_KEY'] = secrets.token_hex(16)
-
-
-app.config['SERVER_NAME'] = 'localhost:5000'
-app.config['APPLICATION_ROOT'] = 'app'
-app.config['PREFERRED_URL_SCHEME'] = 'http'
 
 bootstrap = Bootstrap(app)
 db = SQLAlchemy(app)
@@ -144,18 +125,7 @@ peopleID = []
 
 @app.route('/')
 def home():
-    # Load the encoding file.
-
-    print("Loading Started...")
-
-    read_data = UserRegister.query.all()
-    for user_data in read_data:
-        retrieved_data = pickle.loads(user_data.encode_data)
-        peopleName.append(user_data.username)
-        encodeListKnown.append(retrieved_data)
-        peopleID.append(user_data.number)
-    print("Encode File Loaded")
-    return render_template('home.html', peopleID=peopleID, peopleName=peopleName, encodeListKnown=encodeListKnown)
+    return render_template('home.html')
 
 
 def generate_frames():
@@ -214,6 +184,55 @@ def generate_frames():
     cv2.destroyAllWindows()
 
 
+def generate_frames1():
+    my_dict = {"0.0": 0, "1.0": 0,
+               "2.0": 0, "3.0": 0, "4.0": 0}
+    camera1 = cv2.VideoCapture(0)
+    model = YOLO('best.pt')
+    while True:
+        success, img = camera1.read()
+        if not success:
+            break
+
+        results = model(img)
+        annotated_frame = results[0].plot()
+        try:
+            # 顯示結果
+            print("檢測結果")
+
+            xyxys = []
+            class_ids = []
+            # 將辨識的結果逐一讀取
+            for result in results:
+                boxes = result.boxes.cpu().numpy()
+                xyxys.append(boxes.xyxy)
+                class_ids.append(boxes.cls)
+                # name = result.names
+            print(class_ids)
+            data_array = np.array(class_ids)
+            for value in data_array[0]:
+                # print(value)
+                val = str(value)
+                # print(val)
+                # print(type(val))
+                my_dict[val] = 1
+
+            print(my_dict)
+        except Exception as e:
+            print(f"Error during prediction: {e}")
+
+        success, buffer = cv2.imencode('.jpg', img)
+        # 将缓存里的流数据转成字节流
+
+        frame = buffer.tobytes()
+        # 指定字节流类型image/jpeg
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+    camera1.release()
+    cv2.destroyAllWindows()
+
+
 def get_dectecded_people(matchIndex):
     id = peopleID[matchIndex]
     name = peopleName[matchIndex]
@@ -244,6 +263,11 @@ def camera1():
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+@app.route('/video_feed1')
+def video_feed1():
+    return Response(generate_frames1(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def send_data_to_frontend(id, name):
