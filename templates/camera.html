@@ -6,29 +6,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.0.3/socket.io.js"></script>
     <title>Camera Feed</title>
+    <style>
+        /* 新增樣式來調整佈局 */
+        body {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
+        #camera-feed {
+            flex: 1;
+            /* 讓相機畫面占滿剩餘空間 */
+            margin-right: 20px;
+            /* 增加右邊距 */
+        }
+
+        #info-section {
+            flex: 0 0 300px;
+            /* 固定寬度，不收縮，不延展 */
+        }
+
+        #success_message {
+            font-size: 24px;
+            font-weight: bold;
+            color: green;
+        }
+    </style>
 </head>
 
 <body>
-    <h1>人臉身分辨識</h1>
-    <img src="{{ url_for('video_feed') }}" width="640" height="480" />
+    <div id="camera-feed">
+        <h1>人臉身分辨識</h1>
+        <img src="{{ url_for('video_feed') }}" width="640" height="480" />
+    </div>
+
+    <div id="info-section">
+        <p><strong>Person ID:</strong> <span id="person_id"></span></p>
+        <p><strong>Person Name:</strong> <span id="person_name"></span></p>
+        <p id="success_message" style="display: none;">身份辨識成功！</p>
+        <p id="countdown"></p>
+    </div>
+
 
     <script type="text/javascript">
         var socket = io.connect('http://' + document.domain + ':' + location.port);
 
         socket.on('update_data', function (data) {
-            // 更新网页上的数据
+            // 更新網頁上的數據
             document.getElementById('person_id').innerText = data.id;
             document.getElementById('person_name').innerText = data.name;
+
+            // 顯示成功提示
+            document.getElementById('success_message').style.display = 'block';
+
+            // 開始倒數計時，3秒後跳轉
+            var secondsLeft = 3;
+            var countdownElement = document.getElementById('countdown');
+
+            function updateCountdown() {
+                countdownElement.innerText = secondsLeft + ' 秒後跳轉至裝備辨識系統!';
+                secondsLeft--;
+
+                if (secondsLeft < 0) {
+                    clearInterval(countdownInterval);
+                    // 將 "/next_page" 替換為您想要跳轉的頁面
+                    window.location.href = "/camera1";
+                }
+            }
+
+            updateCountdown();  // 立即顯示倒數秒數
+
+            var countdownInterval = setInterval(updateCountdown, 1000);
         });
 
     </script>
-
-    <div>
-        <p><strong>Person ID:</strong> <span id="person_id"></span></p>
-        <p><strong>Person Name:</strong> <span id="person_name"></span></p>
-    </div>
-    <hr>
 </body>
 
 </html>

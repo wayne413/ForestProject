@@ -236,6 +236,11 @@ def camera(n=None):
 # print("Loading Started...")
 
 
+@app.route('/camera1')
+def camera1():
+    return render_template('camera1.html')
+
+
 @app.route('/video_feed')
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
